@@ -1,6 +1,6 @@
 { SimpleTpl - simple template engine
 
-  Copyright (C) 2014 Michał Gawrycki info..gmsystems.pl
+  Copyright (C) 2019 Michał Gawrycki info..gmsystems.pl
 
   This library is free software; you can redistribute it and/or modify it
   under the terms of the GNU Library General Public License as published by
@@ -101,6 +101,14 @@ type
     FOnGetLoopCount: TGetLoopCountEvent;
     FOnStartLoop: TLoopEvent;
     FOnEndLoop: TLoopEvent;
+  protected
+    procedure DoBeforeRun; virtual;
+    procedure DoAfterRun; virtual;
+    procedure DoGetValue(const AValueName: String; var AValue: String); virtual;
+    procedure DoGetIfCondition(const ACondition: String; var AResult: Boolean); virtual;
+    procedure DoGetLoopCount(const ALoopName: String; var ALoopCount: Integer); virtual;
+    procedure DoStartLoop(const ALoopName: String; const ALoopIndex: Integer; var ABreak: Boolean); virtual;
+    procedure DoEndLoop(const ALoopName: String; const ALoopIndex: Integer; var ABreak: Boolean); virtual;
   public
     constructor Create;
     destructor Destroy; override;
@@ -181,6 +189,51 @@ end;
 
 { TSimpleTemplate }
 
+procedure TSimpleTemplate.DoBeforeRun;
+begin
+
+end;
+
+procedure TSimpleTemplate.DoAfterRun;
+begin
+
+end;
+
+procedure TSimpleTemplate.DoGetValue(const AValueName: String;
+  var AValue: String);
+begin
+  if Assigned(FOnGetValue) then
+    FOnGetValue(Self, AValueName, AValue);
+end;
+
+procedure TSimpleTemplate.DoGetIfCondition(const ACondition: String;
+  var AResult: Boolean);
+begin
+  if Assigned(FOnGetCondition) then
+    FOnGetCondition(Self, ACondition, AResult);
+end;
+
+procedure TSimpleTemplate.DoGetLoopCount(const ALoopName: String;
+  var ALoopCount: Integer);
+begin
+  if Assigned(FOnGetLoopCount) then
+    FOnGetLoopCount(Self, ALoopName, ALoopCount);
+end;
+
+procedure TSimpleTemplate.DoStartLoop(const ALoopName: String;
+  const ALoopIndex: Integer; var ABreak: Boolean);
+begin
+  if Assigned(FOnStartLoop) then
+    FOnStartLoop(Self, ALoopName, ALoopIndex, ABreak);
+end;
+
+procedure TSimpleTemplate.DoEndLoop(const ALoopName: String;
+  const ALoopIndex: Integer; var ABreak: Boolean);
+begin
+  if Assigned(FOnEndLoop) then
+    FOnEndLoop(Self, ALoopName, ALoopIndex, ABreak);
+end;
+
 constructor TSimpleTemplate.Create;
 begin
   inherited;
@@ -254,7 +307,7 @@ begin
       FIfs.Add(NewObject);
       CurrentObject.Items.Add(NewObject);
       CurrentObject := NewObject;
-      CurrentObject.Text := Copy(TagText, Pos(FIfTag, TagText) + Length(FIfTag) + 1, Length(TagText));
+      CurrentObject.Text := Trim(Copy(TagText, Pos(FIfTag, TagText) + Length(FIfTag) + 1, Length(TagText)));
       CurPos := TagEnd + Length(FEndTag);
       Continue;
     end;
@@ -276,7 +329,7 @@ begin
     end;
     if Pos(FLoopTag + ' ', TagText) = 1 then
     begin
-      TagText := Copy(TagText, Pos(FLoopTag, TagText) + Length(FLoopTag) + 1, Length(TagText));
+      TagText := Trim(Copy(TagText, Pos(FLoopTag, TagText) + Length(FLoopTag) + 1, Length(TagText)));
       NewObject := CurrentObject;
       while NewObject.Parent <> nil do
       begin
@@ -333,19 +386,16 @@ begin
     if CurItem is TLoopBlock then
     begin
       LoopCnt := 0;
-      if Assigned(FOnGetLoopCount) then
-        FOnGetLoopCount(Self, CurItem.Text, LoopCnt);
+      DoGetLoopCount(CurItem.Text, LoopCnt);
       for J := 0 to LoopCnt - 1 do
       begin
         TLoopBlock(CurItem).CurrentIndex := J;
         ResCond := False;
-        if Assigned(FOnStartLoop) then
-          FOnStartLoop(Self, CurItem.Text, J, ResCond);
+        DoStartLoop(CurItem.Text, J, ResCond);
         if ResCond then
           Break;
         DoRun(CurItem.Items);
-        if Assigned(FOnEndLoop) then
-          FOnEndLoop(Self, CurItem.Text, J, ResCond);
+        DoEndLoop(CurItem.Text, J, ResCond);
         if ResCond then
           Break;
       end;
@@ -355,8 +405,7 @@ begin
     if CurItem is TIfBlock then
     begin
       ResCond := False;
-      if Assigned(FOnGetCondition) then
-        FOnGetCondition(Self, CurItem.Text, ResCond);
+      DoGetIfCondition(CurItem.Text, ResCond);
       if ResCond then
         DoRun(CurItem.Items)
       else
@@ -366,8 +415,7 @@ begin
     if CurItem is TValueBlock then
     begin
       ResVal := '';
-      if Assigned(FOnGetValue) then
-        OnGetValue(Self, CurItem.Text, ResVal);
+      DoGetValue(CurItem.Text, ResVal);
       Run := Run + ResVal;
       Continue;
     end;
@@ -382,9 +430,11 @@ begin
   FIsRunning := True;
   FStopping := False;
   Result := '';
+  DoBeforeRun;
   DoRun(FBlocks.Items);
   FIsRunning := False;
   FStopping := False;
+  DoAfterRun;
 end;
 
 procedure TSimpleTemplate.Stop;

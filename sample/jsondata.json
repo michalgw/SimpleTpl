@@ -1,0 +1,50 @@
+{
+   "addressbook": { "name": "Mary Lebow",
+      "address": {
+         "street": "5 Main Street",
+         "city": "San Diego, CA",
+         "zip": 91912
+      },
+      "phoneNumbers": [
+         "619 332-3452",
+         "664 223-4667"
+      ]
+   },
+   "master": [
+      {
+         "name": "Aaa",
+         "number": 123,
+         "detail": [
+            "aaa",
+            "bbb",
+            "ccc"
+         ]
+      },
+      {
+         "name": "Bbb",
+         "number": 456,
+         "detail": [
+            "ddd",
+            "eee",
+            "fff"
+         ]
+      }
+   ],
+   "test": {
+      "int": 123,
+      "float": 456.789,
+      "date": "2019-02-14T00:00:00+00:00",
+      "datetime": "2019-02-14T10:25:00+00:00",
+      "string": "abcDEF",
+      "class": {
+         "somefield": 789,
+         "anotherfield": 321
+      },
+      "array": [
+         1, 2, 3
+      ],
+      "null": null,
+      "boolt": true,
+      "boolf": false
+   }
+}
