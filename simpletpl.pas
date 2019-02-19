@@ -78,11 +78,20 @@ type
     constructor Create(AParent: TBlock);
   end;
 
+  TPartBlock = class(TBlock);
+
+  { TParts }
+
+  TParts = class(TBlocks)
+    function FindByName(AName: String): TBlock;
+  end;
+
   { TSimpleTemplate }
 
   TSimpleTemplate = class
   private
     FBlocks: TBlock;
+    FParts: TParts;
     FLoops: TBlocks;
     FIfs: TBlocks;
     FValues: TBlocks;
@@ -94,6 +103,9 @@ type
     FEndIfTag: String;
     FLoopTag: String;
     FEndLoopTag: String;
+    FStartPartTag: String;
+    FEndPartTag: String;
+    FPartTag: String;
     FOnGetValue: TGetValueEvent;
     FIsRunning: Boolean;
     FStopping: Boolean;
@@ -109,16 +121,19 @@ type
     procedure DoGetLoopCount(const ALoopName: String; var ALoopCount: Integer); virtual;
     procedure DoStartLoop(const ALoopName: String; const ALoopIndex: Integer; var ABreak: Boolean); virtual;
     procedure DoEndLoop(const ALoopName: String; const ALoopIndex: Integer; var ABreak: Boolean); virtual;
+    procedure DoPrepare(ATemplate: String; ABlock: TBlock);
   public
     constructor Create;
     destructor Destroy; override;
-    procedure Prepare(ATemplate: String);
+    procedure AddPart(APartName: String; APartTemplate: String);
+    procedure Prepare(ATemplate: String; AClearParts: Boolean = True);
     function Run: String;
     procedure Stop;
     function GetLoopCounter(ALoopName: String): Integer;
     procedure GetLoops(AList: TStrings; OnlyActive: Boolean = False);
     procedure GetIfs(AList: TStrings);
     procedure GetValues(AList: TStrings);
+    property Parts: TParts read FParts;
   published
     property StartTag: String read FStartTag write FStartTag;
     property EndTag: String read FEndTag write FEndTag;
@@ -127,6 +142,9 @@ type
     property EndIfTag: String read FEndIfTag write FEndIfTag;
     property LoopTag: String read FLoopTag write FLoopTag;
     property EndLoopTag: String read FEndLoopTag write FEndLoopTag;
+    property StartPartTag: String read FStartPartTag write FStartPartTag;
+    property EndPartTag: String read FEndPartTag write FEndPartTag;
+    property PartTag: String read FPartTag write FPartTag;
     property IsRunning: Boolean read FIsRunning;
     property Stopping: Boolean read FStopping;
     property OnGetValue: TGetValueEvent read FOnGetValue write FOnGetValue;
@@ -144,11 +162,25 @@ var
   DefaultEndIfTag: String = 'endif';
   DefaultLoopTag: String = 'loop';
   DefaultEndLoopTag: String = 'endloop';
+  DefaultStartPartTag: String = 'startpart';
+  DefaultEndPartTag: String = 'endpart';
+  DefaultPartTrag: String = 'part';
 
 implementation
 
 uses
   strutils;
+
+{ TParts }
+
+function TParts.FindByName(AName: String): TBlock;
+var
+  I: Integer;
+begin
+  for I := 0 to Count - 1 do
+    if AName = Items[I].Text then
+      Exit(Items[I]);
+end;
 
 { TBlock }
 
@@ -234,49 +266,14 @@ begin
     FOnEndLoop(Self, ALoopName, ALoopIndex, ABreak);
 end;
 
-constructor TSimpleTemplate.Create;
-begin
-  inherited;
-  FBlocks := TBlock.Create(nil);
-  FLoops := TBlocks.Create(False);
-  FIfs := TBlocks.Create(False);
-  FValues := TBlocks.Create(False);
-  FStartTag := DefaultStartTag;
-  FEndTag := DefaultEndTag;
-  FIfTag := DefaultIfTag;
-  FElseTag := DefaultElseTag;
-  FEndIfTag := DefaultEndIfTag;
-  FLoopTag := DefaultLoopTag;
-  FEndLoopTag := DefaultEndLoopTag;
-  FPrepared := False;
-  FIsRunning := False;
-  FStopping := False;
-end;
-
-destructor TSimpleTemplate.Destroy;
-begin
-  FBlocks.Free;
-  FLoops.Free;
-  FIfs.Free;
-  FValues.Free;
-  inherited Destroy;
-end;
-
-procedure TSimpleTemplate.Prepare(ATemplate: String);
+procedure TSimpleTemplate.DoPrepare(ATemplate: String; ABlock: TBlock);
 var
   CurrentObject, NewObject: TBlock;
   CurPos: Integer;
   TagStart, TagEnd: Integer;
   TagText: String;
 begin
-  if FIsRunning then
-    raise EParserError.Create('Parser is running.');
-  FPrepared := False;
-  FBlocks.Items.Clear;
-  FLoops.Clear;
-  FIfs.Clear;
-  FValues.Clear;
-  CurrentObject := FBlocks;
+  CurrentObject := ABlock;
   CurPos := 1;
   while CurPos < Length(ATemplate) do
   begin
@@ -356,6 +353,28 @@ begin
       CurPos := TagEnd + Length(FEndTag);
       Continue;
     end;
+    if Pos(FStartPartTag + ' ', TagText) = 1 then
+    begin
+      TagText := Trim(Copy(TagText, Pos(FStartPartTag, TagText) + Length(FStartPartTag) + 1, Length(TagText)));
+      CurPos := Pos(FStartTag + FEndPartTag + FEndTag, ATemplate, TagEnd + Length(FEndTag));
+      if CurPos = 0 then
+        raise EParserError.Create('Unclosed part');
+      NewObject := TBlock.Create(nil);
+      DoPrepare(Copy(ATemplate, TagEnd + Length(FEndTag), CurPos - TagEnd - Length(FEndTag)), NewObject);
+      NewObject.Text := TagText;
+      FParts.Add(NewObject);
+      CurPos := CurPos + Length(FStartTag + FEndPartTag + FEndTag);
+      Continue;
+    end;
+    if Pos(FPartTag + ' ', TagText) = 1 then
+    begin
+      TagText := Trim(Copy(TagText, Pos(FPartTag, TagText) + Length(FPartTag) + 1, Length(TagText)));
+      NewObject := TPartBlock.Create(CurrentObject);
+      NewObject.Text := TagText;
+      CurrentObject.Items.Add(NewObject);
+      CurPos := TagEnd + Length(FEndTag);
+      Continue;
+    end;
     NewObject := TValueBlock.Create(CurrentObject);
     if (CurrentObject is TIfBlock) and (TIfBlock(CurrentObject).IsElseIf) then
       TIfBlock(CurrentObject).ElseItems.Add(NewObject)
@@ -365,6 +384,63 @@ begin
     FValues.Add(NewObject);
     CurPos := TagEnd + Length(FEndTag);
   end;
+end;
+
+constructor TSimpleTemplate.Create;
+begin
+  inherited;
+  FBlocks := TBlock.Create(nil);
+  FParts := TParts.Create(True);
+  FLoops := TBlocks.Create(False);
+  FIfs := TBlocks.Create(False);
+  FValues := TBlocks.Create(False);
+  FStartTag := DefaultStartTag;
+  FEndTag := DefaultEndTag;
+  FIfTag := DefaultIfTag;
+  FElseTag := DefaultElseTag;
+  FEndIfTag := DefaultEndIfTag;
+  FLoopTag := DefaultLoopTag;
+  FEndLoopTag := DefaultEndLoopTag;
+  FStartPartTag := DefaultStartPartTag;
+  FEndPartTag := DefaultEndPartTag;
+  FPartTag := DefaultPartTrag;
+  FPrepared := False;
+  FIsRunning := False;
+  FStopping := False;
+end;
+
+destructor TSimpleTemplate.Destroy;
+begin
+  FParts.Free;
+  FBlocks.Free;
+  FLoops.Free;
+  FIfs.Free;
+  FValues.Free;
+  inherited Destroy;
+end;
+
+procedure TSimpleTemplate.AddPart(APartName: String; APartTemplate: String);
+var
+  Part: TBlock;
+begin
+  Part := TBlock.Create(nil);
+  Part.Text := APartName;
+  DoPrepare(APartTemplate, Part);
+  FParts.Add(Part);
+end;
+
+procedure TSimpleTemplate.Prepare(ATemplate: String; AClearParts: Boolean);
+begin
+  if FIsRunning then
+    raise EParserError.Create('Parser is running.');
+  FPrepared := False;
+  FBlocks.Items.Clear;
+  FLoops.Clear;
+  FIfs.Clear;
+  FValues.Clear;
+  if AClearParts then
+    FParts.Clear;
+  DoPrepare(ATemplate, FBlocks);
   FPrepared := True;
 end;
 
@@ -376,7 +452,7 @@ var
   ResCond: Boolean;
   ResVal: String;
   LoopCnt: Integer;
-  CurItem: TBlock;
+  CurItem, CurPart: TBlock;
 begin
   for I := 0 to AItems.Count - 1 do
   begin
@@ -410,6 +486,13 @@ begin
         DoRun(CurItem.Items)
       else
         DoRun(TIfBlock(CurItem).ElseItems);
+      Continue;
+    end;
+    if CurItem is TPartBlock then
+    begin
+      CurPart := FParts.FindByName(CurItem.Text);
+      if Assigned(CurPart) then
+        DoRun(CurPart.Items);
       Continue;
     end;
     if CurItem is TValueBlock then

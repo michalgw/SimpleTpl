@@ -1,11 +1,7 @@
-<html>
-   <body>
-      <h1>{{title}}</h1>
-      <p>Name: {{addressbook.name}}</p>
-      <p>Address: <br>
-      Street: {{addressbook.address.street}}<br>
-      City: {{addressbook.address.city}}<br>
-      zip: {{addressbook.address.zip}}</p>
+{{startpart test}}
+bla {{title}}
+{{endpart}}
+{{startpart phones}}
       {{if &ArrayLen('addressbook.phoneNumbers') > 0}}
       <p>Phone numbers:
       <ul>
@@ -15,6 +11,18 @@
       </ul>
       </p>
       {{endif}}
+{{endpart}}
+<html>
+   <body>
+      <h1>{{title}}</h1>
+      <p>Name: {{addressbook.name}}</p>
+      <p>Address: <br>
+      Street: {{addressbook.address.street}}<br>
+      City: {{addressbook.address.city}}<br>
+      zip: {{addressbook.address.zip}}</p>
+      {{part phones}}
+      <p>and again
+      {{part phones}}
       <p>Expression: 2+2 = <strong>{{&2+2}}</strong><br>
       Zip + 123 = {{&AsInteger('addressbook.address.zip')+123}}
       </p>
@@ -80,5 +88,12 @@
       null: IsNull: {{&IsNull('test.null')}}<br>
       bool true: {{test.boolt}} AsBoolean: {{&AsBoolean('test.boolt')}}<br>
       bool false: {{test.boolf}} AsBoolean: {{&AsBoolean('test.boolf')}}<br>
+      <p>{{part test}}</p>
+      <p>{{part test}}</p>
+      {{part somepart}}
+      <p>{{part bottomtest}}
    </body>
 </html>
+{{startpart bottomtest}}
+Part defined at bottom {{addressbook.address.zip}}
+{{endpart}}

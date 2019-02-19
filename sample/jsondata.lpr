@@ -23,7 +23,8 @@ begin
   JSONTpl := TSimpleJSONTemplate.Create;
   JSONTpl.ExpressionParser.BuiltIns := [bcStrings, bcDateTime, bcMath, bcBoolean, bcConversion];
   JSONTpl.Values.Values['title'] := 'Address book';
-  JSONTpl.Prepare(Lines.Text);
+  JSONTpl.AddPart('somepart', '<p>{{addressbook.name}}</p>');
+  JSONTpl.Prepare(Lines.Text, False);
   JSONTpl.JSONData := JSONData;
   Lines.Text := JSONTpl.Run;
   Lines.SaveToFile('jsondata.html');
