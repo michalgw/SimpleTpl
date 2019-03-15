@@ -302,7 +302,10 @@ begin
     begin
       NewObject := TIfBlock.Create(CurrentObject);
       FIfs.Add(NewObject);
-      CurrentObject.Items.Add(NewObject);
+      if (CurrentObject is TIfBlock) and TIfBlock(CurrentObject).IsElseIf then
+        TIfBlock(CurrentObject).ElseItems.Add(NewObject)
+      else
+        CurrentObject.Items.Add(NewObject);
       CurrentObject := NewObject;
       CurrentObject.Text := Trim(Copy(TagText, Pos(FIfTag, TagText) + Length(FIfTag) + 1, Length(TagText)));
       CurPos := TagEnd + Length(FEndTag);
