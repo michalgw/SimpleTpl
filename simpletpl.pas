@@ -164,7 +164,7 @@ var
   DefaultEndLoopTag: String = 'endloop';
   DefaultStartPartTag: String = 'startpart';
   DefaultEndPartTag: String = 'endpart';
-  DefaultPartTrag: String = 'part';
+  DefaultPartTag: String = 'part';
 
 implementation
 
@@ -406,7 +406,7 @@ begin
   FEndLoopTag := DefaultEndLoopTag;
   FStartPartTag := DefaultStartPartTag;
   FEndPartTag := DefaultEndPartTag;
-  FPartTag := DefaultPartTrag;
+  FPartTag := DefaultPartTag;
   FPrepared := False;
   FIsRunning := False;
   FStopping := False;
