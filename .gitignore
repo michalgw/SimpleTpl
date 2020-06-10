@@ -1,4 +1,5 @@
 /sample/lib
+/backup
 *.html
 *.exe
 *.lps
