@@ -86,12 +86,21 @@ type
     function FindByName(AName: String): TBlock;
   end;
 
+  { TImports }
+
+  TImportBlock = class(TBlock);
+
+  TImports = class(TBlocks)
+    //function FindByName(AName: String): TBlock;
+  end;
+
   { TSimpleTemplate }
 
   TSimpleTemplate = class
   private
     FBlocks: TBlock;
     FParts: TParts;
+    FImports: TImports;
     FLoops: TBlocks;
     FIfs: TBlocks;
     FValues: TBlocks;
@@ -106,6 +115,7 @@ type
     FStartPartTag: String;
     FEndPartTag: String;
     FPartTag: String;
+    FImportTag: String;
     FOnGetValue: TGetValueEvent;
     FIsRunning: Boolean;
     FStopping: Boolean;
@@ -134,6 +144,7 @@ type
     procedure GetIfs(AList: TStrings);
     procedure GetValues(AList: TStrings);
     property Parts: TParts read FParts;
+    property Imports: TImports read FImports;
   published
     property StartTag: String read FStartTag write FStartTag;
     property EndTag: String read FEndTag write FEndTag;
@@ -145,6 +156,7 @@ type
     property StartPartTag: String read FStartPartTag write FStartPartTag;
     property EndPartTag: String read FEndPartTag write FEndPartTag;
     property PartTag: String read FPartTag write FPartTag;
+    property ImportTag: String read FImportTag write FImportTag;
     property IsRunning: Boolean read FIsRunning;
     property Stopping: Boolean read FStopping;
     property OnGetValue: TGetValueEvent read FOnGetValue write FOnGetValue;
@@ -165,6 +177,7 @@ var
   DefaultStartPartTag: String = 'startpart';
   DefaultEndPartTag: String = 'endpart';
   DefaultPartTag: String = 'part';
+  DefaultImportTag: String = 'import';
 
 implementation
 
@@ -378,6 +391,15 @@ begin
       CurPos := TagEnd + Length(FEndTag);
       Continue;
     end;
+    if Pos(FImportTag + ' ', TagText) = 1 then
+    begin
+      TagText := Trim(Copy(TagText, Pos(FPartTag, TagText) + Length(FPartTag) + 1, Length(TagText)));
+      NewObject := TPartBlock.Create(CurrentObject);
+      NewObject.Text := TagText;
+      CurrentObject.Items.Add(NewObject);
+      CurPos := TagEnd + Length(FEndTag);
+      Continue;
+    end;
     NewObject := TValueBlock.Create(CurrentObject);
     if (CurrentObject is TIfBlock) and (TIfBlock(CurrentObject).IsElseIf) then
       TIfBlock(CurrentObject).ElseItems.Add(NewObject)
@@ -394,6 +416,7 @@ begin
   inherited;
   FBlocks := TBlock.Create(nil);
   FParts := TParts.Create(True);
+  FImports := TImports.Create(True);
   FLoops := TBlocks.Create(False);
   FIfs := TBlocks.Create(False);
   FValues := TBlocks.Create(False);
@@ -407,6 +430,7 @@ begin
   FStartPartTag := DefaultStartPartTag;
   FEndPartTag := DefaultEndPartTag;
   FPartTag := DefaultPartTag;
+  FImportTag := DefaultImportTag;
   FPrepared := False;
   FIsRunning := False;
   FStopping := False;
