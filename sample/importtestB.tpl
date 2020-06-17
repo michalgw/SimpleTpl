@@ -1,1 +1,1 @@
-B
+Import from template B

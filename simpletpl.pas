@@ -39,6 +39,7 @@ uses
 
 type
   EParserError = class(Exception);
+  EFileError = class(Exception);
 
   { Events }
 
@@ -91,7 +92,7 @@ type
   TImportBlock = class(TBlock);
 
   TImports = class(TBlocks)
-    //function FindByName(AName: String): TBlock;
+    function LoadByName(AName: String): TBlock;
   end;
 
   { TSimpleTemplate }
@@ -195,6 +196,15 @@ begin
       Exit(Items[I]);
 end;
 
+{ TImports }
+
+function TImports.LoadByName(AName: String): TBlock;
+var
+  I: Integer;
+begin
+  Writeln('>>>>',AName);
+end;
+
 { TBlock }
 
 constructor TBlock.Create(AParent: TBlock);
@@ -285,9 +295,11 @@ var
   CurPos: Integer;
   TagStart, TagEnd: Integer;
   TagText: String;
+  ImpTempl : TStringList;
 begin
   CurrentObject := ABlock;
   CurPos := 1;
+  ATemplate := StringReplace(ATemplate, FEndTag+#13#10, FEndTag,[rfReplaceAll, rfIgnoreCase]);
   while CurPos < Length(ATemplate) do
   begin
     TagStart := PosEx(FStartTag, ATemplate, CurPos);
@@ -372,7 +384,7 @@ begin
     if Pos(FStartPartTag + ' ', TagText) = 1 then
     begin
       TagText := Trim(Copy(TagText, Pos(FStartPartTag, TagText) + Length(FStartPartTag) + 1, Length(TagText)));
-      CurPos := Pos(FStartTag + FEndPartTag + FEndTag, ATemplate, TagEnd + Length(FEndTag));
+      CurPos := PosEx(FStartTag + FEndPartTag + FEndTag, ATemplate, TagEnd + Length(FEndTag));
       if CurPos = 0 then
         raise EParserError.Create('Unclosed part');
       NewObject := TBlock.Create(nil);
@@ -393,11 +405,20 @@ begin
     end;
     if Pos(FImportTag + ' ', TagText) = 1 then
     begin
-      TagText := Trim(Copy(TagText, Pos(FPartTag, TagText) + Length(FPartTag) + 1, Length(TagText)));
-      NewObject := TPartBlock.Create(CurrentObject);
-      NewObject.Text := TagText;
+      CurPos := CurPos + Length(TagText + FEndTag);
+      TagText := Trim(Copy(TagText, Pos(FImportTag, TagText) + Length(FImportTag) + 2, Length(TagText)-Length(FImportTag)-3));
+
+      ImpTempl:=TStringList.Create;
+      try
+         ImpTempl.LoadFromFile(TagText);
+      except
+        raise EFileError.Create('Error loading file '+ TagText);
+      end;
+      NewObject := TImportBlock.Create(CurrentObject);
+      DoPrepare(ImpTempl.Text, NewObject);
       CurrentObject.Items.Add(NewObject);
       CurPos := TagEnd + Length(FEndTag);
+      ImpTempl.Free;
       Continue;
     end;
     NewObject := TValueBlock.Create(CurrentObject);
@@ -479,8 +500,9 @@ var
   ResCond: Boolean;
   ResVal: String;
   LoopCnt: Integer;
-  CurItem, CurPart: TBlock;
+  CurItem, CurPart, CurImport: TBlock;
 begin
+  if AItems.Count>0 then
   for I := 0 to AItems.Count - 1 do
   begin
     if FStopping then
@@ -522,6 +544,11 @@ begin
         DoRun(CurPart.Items);
       Continue;
     end;
+    if CurItem is TImportBlock then
+    begin
+      DoRun(CurItem.Items);
+      Continue;
+    end;
     if CurItem is TValueBlock then
     begin
       ResVal := '';
@@ -529,7 +556,7 @@ begin
       Run := Run + ResVal;
       Continue;
     end;
-    if CurItem is TBlock then
+    if (CurItem is TBlock)and(CurItem.Text <>#13#10) then
       Run := Run + CurItem.Text;
   end;
 end;
